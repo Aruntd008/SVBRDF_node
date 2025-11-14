@@ -34,19 +34,26 @@ class MaterialNetNode:
             output_dir = os.path.join(tmpdir, "output")
             
             script_path = os.path.join(dir_path, "material_net.py")
-            
-            # Run material_net.py in the svbrdf conda environment
-            # Using cmd.exe on Windows to activate conda environment
 
-            #python material_net.py --input_dir inputExamples/ --mode eval --output_dir examples_outputs --checkpoint ./pretrained_checkpoints/ --imageFormat png --scale_size 256 --batch_size 1 --correctGamma      
-            activate_cmd = "conda activate svbrdf"
-            python_cmd = f"python {script_path} --mode eval --input_dir {input_path} --output_dir {output_dir} --checkpoint {checkpoint_dir} --imageFormat png --scale_size 256 --batch_size 1 --correctGamma"
-            
-            # Combine conda activation and python command
-            full_cmd = f"{activate_cmd} && {python_cmd}"
-            
-            # Run the command using cmd.exe shell with correct working directory
-            result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True, cwd=dir_path)
+            # Run material_net.py in the svbrdf conda environment
+            # Using 'conda run' which works in both interactive and non-interactive shells
+            # This is compatible with Linux containers and doesn't require 'conda init'
+
+            # Build the command using conda run
+            cmd = [
+                'conda', 'run', '-n', 'svbrdf', 'python', script_path,
+                '--mode', 'eval',
+                '--input_dir', input_path,
+                '--output_dir', output_dir,
+                '--checkpoint', checkpoint_dir,
+                '--imageFormat', 'png',
+                '--scale_size', '256',
+                '--batch_size', '1',
+                '--correctGamma'
+            ]
+
+            # Run the command with correct working directory
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=dir_path)
             
             # Check if the command was successful
             if result.returncode != 0:
