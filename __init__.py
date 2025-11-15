@@ -271,6 +271,9 @@ def download_model_checkpoints():
         current_dir = os.path.dirname(os.path.realpath(__file__))
         checkpoint_dir = os.path.join(current_dir, 'pretrained_checkpoints')
 
+        # Create checkpoint directory if it doesn't exist
+        os.makedirs(checkpoint_dir, exist_ok=True)
+
         # Use huggingface-cli download command
         cmd = [
             conda_exe, 'run', '-n', 'svbrdf',
@@ -285,11 +288,22 @@ def download_model_checkpoints():
 
         if result.returncode != 0:
             # Fallback: try using Python API
-            print("CLI download failed, trying Python API...")
+            print(f"CLI download failed: {result.stderr}")
+            print("Trying Python API...")
             return download_model_checkpoints_python()
 
-        print("Model checkpoints downloaded successfully!")
-        return True
+        # Check if files were downloaded
+        if os.path.exists(os.path.join(checkpoint_dir, 'options.json')):
+            print("Model checkpoints downloaded successfully!")
+            return True
+        else:
+            print("Download completed but files not found in expected location.")
+            print(f"Checking directory contents: {checkpoint_dir}")
+            if os.path.exists(checkpoint_dir):
+                files = os.listdir(checkpoint_dir)
+                print(f"Files found: {files}")
+            print("Trying Python API fallback...")
+            return download_model_checkpoints_python()
 
     except Exception as e:
         print(f"Failed to download checkpoints: {str(e)}")
@@ -302,17 +316,21 @@ def download_model_checkpoints_python():
         if not conda_exe:
             raise RuntimeError("Conda executable not found")
 
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        checkpoint_dir = os.path.join(current_dir, 'pretrained_checkpoints')
+
+        # Create checkpoint directory if it doesn't exist
+        os.makedirs(checkpoint_dir, exist_ok=True)
+
         # Import huggingface_hub in the svbrdf environment
-        result = subprocess.run([
-            conda_exe, 'run', '-n', 'svbrdf', 'python', '-c',
-            '''
+        python_code = f'''
 from huggingface_hub import snapshot_download
 import os
 
-current_dir = os.path.dirname(os.path.realpath(__file__))
-checkpoint_dir = os.path.join(current_dir, "pretrained_checkpoints")
+checkpoint_dir = r"{checkpoint_dir}"
 
 print("Downloading model using Python API...")
+print(f"Target directory: {{checkpoint_dir}}")
 snapshot_download(
     repo_id="aruntd008/svbrdf-model",
     repo_type="model",
@@ -321,10 +339,14 @@ snapshot_download(
 )
 print("Download completed!")
 '''
-        ], capture_output=True, text=True, cwd=os.path.dirname(os.path.realpath(__file__)))
-        
+
+        result = subprocess.run([
+            conda_exe, 'run', '-n', 'svbrdf', 'python', '-c', python_code
+        ], capture_output=True, text=True)
+
         if result.returncode == 0:
             print("Model checkpoints downloaded successfully using Python API!")
+            print(result.stdout)
             return True
         else:
             print(f"Python API download failed: {result.stderr}")
@@ -369,15 +391,24 @@ def ensure_environment():
     
     # Check model checkpoints
     checkpoints_ready, checkpoint_message = check_model_checkpoints()
-    
+
     if not checkpoints_ready:
         print(f"Model checkpoint check: {checkpoint_message}")
         print("Attempting to download model checkpoints from Hugging Face...")
-        
+
         if not download_model_checkpoints():
             print("Automatic checkpoint download failed. The MaterialNetNode may not work properly.")
-            print("Please download manually using:")
-            print("huggingface-cli download aruntd008/svbrdf-model --local-dir pretrained_checkpoints --repo-type model")
+            print("\nTo fix this, run one of the following:")
+            print("  1. python download_checkpoints.py")
+            print("  2. conda activate svbrdf && huggingface-cli download aruntd008/svbrdf-model --local-dir pretrained_checkpoints --repo-type model")
+            print("\nOr check TROUBLESHOOTING.md for more options.")
+            return False
+
+        # Verify download was successful
+        checkpoints_ready, checkpoint_message = check_model_checkpoints()
+        if not checkpoints_ready:
+            print(f"Download completed but verification failed: {checkpoint_message}")
+            print("Please check the pretrained_checkpoints directory and run: python check_checkpoints.py")
             return False
     else:
         print(f"Model checkpoints: {checkpoint_message}")
