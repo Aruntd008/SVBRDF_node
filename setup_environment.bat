@@ -1,8 +1,12 @@
 @echo off
 echo Setting up SVBRDF conda environment...
 
+echo Accepting conda Terms of Service (if required)...
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main 2>nul
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 2>nul
+
 echo Creating conda environment 'svbrdf' with Python 3.8...
-conda create -n svbrdf python=3.8 -y
+conda create -n svbrdf python=3.8 -y -c conda-forge
 
 echo Activating svbrdf environment...
 call conda activate svbrdf

@@ -179,10 +179,22 @@ def setup_conda_environment():
         if not conda_exe:
             raise RuntimeError("Conda executable not found")
 
-        # Create conda environment
+        # Accept conda Terms of Service for Anaconda channels (required in newer conda versions)
+        print("Accepting conda Terms of Service...")
+        tos_channels = [
+            'https://repo.anaconda.com/pkgs/main',
+            'https://repo.anaconda.com/pkgs/r'
+        ]
+        for channel in tos_channels:
+            subprocess.run([conda_exe, 'tos', 'accept', '--override-channels', '--channel', channel],
+                         capture_output=True, text=True)
+
+        # Create conda environment using conda-forge channel (doesn't require TOS)
         print("Creating conda environment 'svbrdf' with Python 3.8...")
-        result = subprocess.run([conda_exe, 'create', '-n', 'svbrdf', 'python=3.8', '-y'],
-                              capture_output=True, text=True)
+        result = subprocess.run([
+            conda_exe, 'create', '-n', 'svbrdf', 'python=3.8', '-y',
+            '-c', 'conda-forge'
+        ], capture_output=True, text=True)
         if result.returncode != 0:
             raise RuntimeError(f"Failed to create conda environment: {result.stderr}")
 
