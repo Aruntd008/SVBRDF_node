@@ -15,13 +15,40 @@ import importlib.util
 import platform
 import urllib.request
 import tempfile
+import shutil
+
+def find_conda_executable():
+    """Find the conda executable in common locations."""
+    # First try to find conda in PATH
+    conda_exe = shutil.which('conda')
+    if conda_exe:
+        return conda_exe
+
+    # Common conda installation paths
+    possible_paths = [
+        os.path.expanduser("~/miniconda3/bin/conda"),
+        os.path.expanduser("~/anaconda3/bin/conda"),
+        "/opt/conda/bin/conda",
+        "/usr/local/miniconda3/bin/conda",
+        "/usr/local/anaconda3/bin/conda",
+    ]
+
+    for path in possible_paths:
+        if os.path.isfile(path):
+            return path
+
+    return None
 
 def check_conda_installed():
     """Check if conda is installed and accessible."""
     try:
-        result = subprocess.run(['conda', '--version'], capture_output=True, text=True, shell=True)
+        conda_exe = find_conda_executable()
+        if not conda_exe:
+            return False, "Conda not found in PATH or common locations"
+
+        result = subprocess.run([conda_exe, '--version'], capture_output=True, text=True)
         if result.returncode == 0:
-            return True, f"Conda found: {result.stdout.strip()}"
+            return True, f"Conda found at {conda_exe}: {result.stdout.strip()}"
         else:
             return False, "Conda command failed"
     except FileNotFoundError:
@@ -121,21 +148,24 @@ def install_miniconda():
 def check_conda_environment():
     """Check if the svbrdf conda environment exists and has required packages."""
     try:
-        # Check if conda is available
-        result = subprocess.run(['conda', 'env', 'list'], capture_output=True, text=True, shell=True)
+        conda_exe = find_conda_executable()
+        if not conda_exe:
+            return False, "Conda not found"
+
+        # Check if svbrdf environment exists
+        result = subprocess.run([conda_exe, 'env', 'list'], capture_output=True, text=True)
         if result.returncode != 0:
             return False, "Conda not found"
-        
-        # Check if svbrdf environment exists
+
         if 'svbrdf' not in result.stdout:
             return False, "Environment 'svbrdf' not found"
-        
+
         # Check if tensorflow is installed in the environment
-        check_tf = subprocess.run(['conda', 'run', '-n', 'svbrdf', 'python', '-c', 'import tensorflow; print(tensorflow.__version__)'], 
-                                capture_output=True, text=True, shell=True)
+        check_tf = subprocess.run([conda_exe, 'run', '-n', 'svbrdf', 'python', '-c', 'import tensorflow; print(tensorflow.__version__)'],
+                                capture_output=True, text=True)
         if check_tf.returncode != 0:
             return False, "TensorFlow not found in svbrdf environment"
-            
+
         return True, "Environment ready"
     except Exception as e:
         return False, f"Error checking environment: {str(e)}"
@@ -143,39 +173,43 @@ def check_conda_environment():
 def setup_conda_environment():
     """Automatically set up the svbrdf conda environment with required dependencies."""
     print("Setting up SVBRDF conda environment automatically...")
-    
+
     try:
+        conda_exe = find_conda_executable()
+        if not conda_exe:
+            raise RuntimeError("Conda executable not found")
+
         # Create conda environment
         print("Creating conda environment 'svbrdf' with Python 3.8...")
-        result = subprocess.run(['conda', 'create', '-n', 'svbrdf', 'python=3.8', '-y'], 
-                              capture_output=True, text=True, shell=True)
+        result = subprocess.run([conda_exe, 'create', '-n', 'svbrdf', 'python=3.8', '-y'],
+                              capture_output=True, text=True)
         if result.returncode != 0:
             raise RuntimeError(f"Failed to create conda environment: {result.stderr}")
-        
+
         # Install dependencies
         print("Installing dependencies...")
         packages = [
-            'numpy', 'imageio', 'opencv-python', 'pillow', 
+            'numpy', 'imageio', 'opencv-python', 'pillow',
             'matplotlib', 'tqdm', 'lxml', 'scipy', 'huggingface_hub'
         ]
-        
+
         for package in packages:
             print(f"Installing {package}...")
-            result = subprocess.run(['conda', 'run', '-n', 'svbrdf', 'pip', 'install', package], 
-                                  capture_output=True, text=True, shell=True)
+            result = subprocess.run([conda_exe, 'run', '-n', 'svbrdf', 'pip', 'install', package],
+                                  capture_output=True, text=True)
             if result.returncode != 0:
                 print(f"Warning: Failed to install {package}: {result.stderr}")
-        
+
         # Install TensorFlow 2.12.0
         print("Installing TensorFlow 2.12.0...")
-        result = subprocess.run(['conda', 'run', '-n', 'svbrdf', 'pip', 'install', 'tensorflow==2.12.0'], 
-                              capture_output=True, text=True, shell=True)
+        result = subprocess.run([conda_exe, 'run', '-n', 'svbrdf', 'pip', 'install', 'tensorflow==2.12.0'],
+                              capture_output=True, text=True)
         if result.returncode != 0:
             raise RuntimeError(f"Failed to install TensorFlow: {result.stderr}")
-        
+
         print("SVBRDF environment setup complete!")
         return True
-        
+
     except Exception as e:
         print(f"Failed to set up environment: {str(e)}")
         print("Please run the setup script manually:")
@@ -216,31 +250,35 @@ def check_model_checkpoints():
 def download_model_checkpoints():
     """Download model checkpoints from Hugging Face."""
     print("Downloading model checkpoints from Hugging Face...")
-    
+
     try:
+        conda_exe = find_conda_executable()
+        if not conda_exe:
+            raise RuntimeError("Conda executable not found")
+
         current_dir = os.path.dirname(os.path.realpath(__file__))
         checkpoint_dir = os.path.join(current_dir, 'pretrained_checkpoints')
-        
+
         # Use huggingface-cli download command
         cmd = [
-            'conda', 'run', '-n', 'svbrdf', 
-            'huggingface-cli', 'download', 
+            conda_exe, 'run', '-n', 'svbrdf',
+            'huggingface-cli', 'download',
             'aruntd008/svbrdf-model',
             '--local-dir', checkpoint_dir,
             '--repo-type', 'model'
         ]
-        
+
         print("Running: huggingface-cli download aruntd008/svbrdf-model...")
-        result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
-        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
         if result.returncode != 0:
             # Fallback: try using Python API
             print("CLI download failed, trying Python API...")
             return download_model_checkpoints_python()
-        
+
         print("Model checkpoints downloaded successfully!")
         return True
-        
+
     except Exception as e:
         print(f"Failed to download checkpoints: {str(e)}")
         return download_model_checkpoints_python()
@@ -248,9 +286,13 @@ def download_model_checkpoints():
 def download_model_checkpoints_python():
     """Download model checkpoints using Python huggingface_hub API."""
     try:
+        conda_exe = find_conda_executable()
+        if not conda_exe:
+            raise RuntimeError("Conda executable not found")
+
         # Import huggingface_hub in the svbrdf environment
         result = subprocess.run([
-            'conda', 'run', '-n', 'svbrdf', 'python', '-c',
+            conda_exe, 'run', '-n', 'svbrdf', 'python', '-c',
             '''
 from huggingface_hub import snapshot_download
 import os
@@ -267,7 +309,7 @@ snapshot_download(
 )
 print("Download completed!")
 '''
-        ], capture_output=True, text=True, shell=True, cwd=os.path.dirname(os.path.realpath(__file__)))
+        ], capture_output=True, text=True, cwd=os.path.dirname(os.path.realpath(__file__)))
         
         if result.returncode == 0:
             print("Model checkpoints downloaded successfully using Python API!")

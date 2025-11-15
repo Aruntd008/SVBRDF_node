@@ -4,6 +4,7 @@ import os
 import tempfile
 import subprocess
 from PIL import Image
+import shutil
 
 class MaterialNetNode:
     @classmethod
@@ -19,29 +20,56 @@ class MaterialNetNode:
     FUNCTION = "run"
     CATEGORY = "image processing"
 
+    def _find_conda_executable(self):
+        """Find the conda executable in common locations."""
+        # First try to find conda in PATH
+        conda_exe = shutil.which('conda')
+        if conda_exe:
+            return conda_exe
+
+        # Common conda installation paths
+        possible_paths = [
+            os.path.expanduser("~/miniconda3/bin/conda"),
+            os.path.expanduser("~/anaconda3/bin/conda"),
+            "/opt/conda/bin/conda",
+            "/usr/local/miniconda3/bin/conda",
+            "/usr/local/anaconda3/bin/conda",
+        ]
+
+        for path in possible_paths:
+            if os.path.isfile(path):
+                return path
+
+        return None
+
     def run(self, image):
         # Use absolute path to pretrained_checkpoints
         dir_path = os.path.dirname(os.path.realpath(__file__))
         checkpoint_dir = os.path.join(dir_path, 'pretrained_checkpoints')
 
         img_np = image[0].cpu().numpy()
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             input_path = os.path.join(tmpdir, "input.png")
             pil_img = Image.fromarray((img_np * 255).astype(np.uint8))
             pil_img.save(input_path)
-            
+
             output_dir = os.path.join(tmpdir, "output")
-            
+
             script_path = os.path.join(dir_path, "material_net.py")
+
+            # Find conda executable - check common locations
+            conda_exe = self._find_conda_executable()
+            if not conda_exe:
+                raise RuntimeError("Conda executable not found. Please ensure conda is installed and in PATH.")
 
             # Run material_net.py in the svbrdf conda environment
             # Using 'conda run' which works in both interactive and non-interactive shells
             # This is compatible with Linux containers and doesn't require 'conda init'
 
-            # Build the command using conda run
+            # Build the command using conda run with full path to conda
             cmd = [
-                'conda', 'run', '-n', 'svbrdf', 'python', script_path,
+                conda_exe, 'run', '-n', 'svbrdf', 'python', script_path,
                 '--mode', 'eval',
                 '--input_dir', input_path,
                 '--output_dir', output_dir,
