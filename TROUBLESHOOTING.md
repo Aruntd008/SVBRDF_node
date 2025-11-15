@@ -3,11 +3,13 @@
 ## Quick Diagnostics
 
 ### Check if checkpoints are properly installed:
+
 ```bash
 python check_checkpoints.py
 ```
 
 ### Manually download checkpoints:
+
 ```bash
 python download_checkpoints.py
 ```
@@ -19,19 +21,42 @@ python download_checkpoints.py
 ### 1. Missing Model Checkpoints
 
 **Error:**
+
 ```
 FileNotFoundError: [Errno 2] No such file or directory: '.../pretrained_checkpoints/options.json'
 ```
 
 **Solution:**
 
-#### Option A: Automatic Download (Recommended)
+#### Option A: Fix Backslash Filenames (Most Common on Linux/RunPod)
+
+If files were downloaded but have backslash characters in their names:
+
+```bash
+python fix_backslash_filenames.py
+```
+
+This fixes the issue where Hugging Face repos with Windows-style paths create files like `pretrained_checkpoints\options.json` as literal filenames.
+
+#### Option B: Fix Nested Directory
+
+If files were downloaded to a nested subdirectory:
+
+```bash
+python fix_checkpoint_location.py
+```
+
+This fixes the issue where Hugging Face downloads files to `pretrained_checkpoints/pretrained_checkpoints/` instead of `pretrained_checkpoints/`.
+
+#### Option B: Automatic Download
+
 ```bash
 conda activate svbrdf
 python download_checkpoints.py
 ```
 
 #### Option B: Manual Download
+
 1. Visit: https://huggingface.co/aruntd008/svbrdf-model
 2. Download all files to `pretrained_checkpoints/` directory
 3. Required files:
@@ -42,6 +67,7 @@ python download_checkpoints.py
    - `options.json`
 
 #### Option C: Using huggingface-cli
+
 ```bash
 conda activate svbrdf
 huggingface-cli download aruntd008/svbrdf-model --local-dir pretrained_checkpoints --repo-type model
@@ -52,11 +78,13 @@ huggingface-cli download aruntd008/svbrdf-model --local-dir pretrained_checkpoin
 ### 2. Conda Environment Not Found
 
 **Error:**
+
 ```
 EnvironmentLocationNotFound: Not a conda environment: /root/miniconda3/envs/svbrdf
 ```
 
 **Solution:**
+
 ```bash
 # Run the setup script
 ./setup_environment.sh   # Linux/Mac
@@ -69,17 +97,20 @@ setup_environment.bat    # Windows
 ### 3. Conda Terms of Service Error
 
 **Error:**
+
 ```
 CondaToSNonInteractiveError: Terms of Service have not been accepted
 ```
 
 **Solution:**
+
 ```bash
 conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
 conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 ```
 
 Then re-run the setup:
+
 ```bash
 ./setup_environment.sh
 ```
@@ -89,6 +120,7 @@ Then re-run the setup:
 ### 4. TensorFlow GPU Warnings
 
 **Warning:**
+
 ```
 Could not find cuda drivers on your machine, GPU will not be used.
 ```
@@ -97,6 +129,7 @@ Could not find cuda drivers on your machine, GPU will not be used.
 
 1. Install CUDA drivers for your GPU
 2. Install TensorFlow with GPU support:
+
 ```bash
 conda activate svbrdf
 pip install tensorflow==2.12.0
@@ -109,17 +142,20 @@ pip install tensorflow==2.12.0
 After fixing any issues, verify the installation:
 
 1. **Check conda environment:**
+
 ```bash
 conda env list | grep svbrdf
 ```
 
 2. **Check TensorFlow:**
+
 ```bash
 conda activate svbrdf
 python -c "import tensorflow; print(tensorflow.__version__)"
 ```
 
 3. **Check checkpoints:**
+
 ```bash
 python check_checkpoints.py
 ```
@@ -136,6 +172,7 @@ python check_checkpoints.py
 If you're still experiencing issues:
 
 1. Run diagnostics:
+
 ```bash
 python check_checkpoints.py
 conda activate svbrdf
@@ -148,4 +185,3 @@ python -c "import tensorflow; print(tensorflow.__version__)"
    - Full error message
    - Output of diagnostic commands
    - Your operating system and environment (Docker/RunPod/local)
-

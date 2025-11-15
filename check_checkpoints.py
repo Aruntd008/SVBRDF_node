@@ -54,6 +54,31 @@ def check_checkpoints():
         print("\n" + "=" * 60)
         if missing:
             print(f"Status: INCOMPLETE - Missing {len(missing)} file(s)")
+
+            # Check if files have backslashes in names (Windows path issue)
+            backslash_files = [f for f in all_files if '\\' in f[0]]
+            if backslash_files:
+                print("\n⚠️  ISSUE DETECTED: Files have backslash characters in names!")
+                print("   This happens when Hugging Face repos have Windows-style paths.")
+                print("\n   Files with backslashes:")
+                for f, _ in backslash_files[:5]:  # Show first 5
+                    print(f"     - {f}")
+                if len(backslash_files) > 5:
+                    print(f"     ... and {len(backslash_files) - 5} more")
+                print("\nTo fix this, run:")
+                print("  python fix_backslash_filenames.py")
+                return False
+
+            # Check if files are in a nested directory
+            nested_dir = os.path.join(checkpoint_dir, 'pretrained_checkpoints')
+            if os.path.exists(nested_dir) and os.path.isdir(nested_dir):
+                print("\n⚠️  ISSUE DETECTED: Files are in a nested directory!")
+                print(f"   Files are in: {nested_dir}")
+                print(f"   Should be in: {checkpoint_dir}")
+                print("\nTo fix this, run:")
+                print("  python fix_checkpoint_location.py")
+                return False
+
             print("\nTo download the model checkpoints, run:")
             print("  python download_checkpoints.py")
             return False

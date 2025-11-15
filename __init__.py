@@ -302,6 +302,65 @@ def download_model_checkpoints():
             if os.path.exists(checkpoint_dir):
                 files = os.listdir(checkpoint_dir)
                 print(f"Files found: {files}")
+
+                # Check for files with backslashes in names (HuggingFace Windows path issue)
+                backslash_files = [f for f in files if '\\' in f]
+                if backslash_files:
+                    print("Found files with backslash characters in names (Windows path issue)")
+                    print("Extracting files to correct locations...")
+
+                    import shutil
+                    for item in backslash_files:
+                        # Extract the actual filename (part after the last backslash)
+                        actual_filename = item.split('\\')[-1]
+                        src = os.path.join(checkpoint_dir, item)
+                        dst = os.path.join(checkpoint_dir, actual_filename)
+
+                        if os.path.isfile(src) and not os.path.exists(dst):
+                            shutil.copy2(src, dst)
+                            print(f"  Extracted: {actual_filename}")
+
+                    # Clean up backslash-named files
+                    for item in backslash_files:
+                        try:
+                            os.remove(os.path.join(checkpoint_dir, item))
+                        except:
+                            pass
+
+                    print("Files extracted successfully!")
+
+                    # Verify the extraction worked
+                    if os.path.exists(os.path.join(checkpoint_dir, 'options.json')):
+                        print("Model checkpoints are now in the correct location!")
+                        return True
+
+                # Check if files are in a nested subdirectory (another common HuggingFace issue)
+                nested_dir = os.path.join(checkpoint_dir, 'pretrained_checkpoints')
+                if os.path.exists(nested_dir) and os.path.isdir(nested_dir):
+                    print(f"Found nested directory: {nested_dir}")
+                    print("Moving files to correct location...")
+
+                    # Move all files from nested directory to parent
+                    import shutil
+                    for item in os.listdir(nested_dir):
+                        src = os.path.join(nested_dir, item)
+                        dst = os.path.join(checkpoint_dir, item)
+                        if os.path.isfile(src):
+                            shutil.move(src, dst)
+                            print(f"  Moved: {item}")
+
+                    # Remove the now-empty nested directory
+                    try:
+                        os.rmdir(nested_dir)
+                    except:
+                        pass
+                    print("Files moved successfully!")
+
+                    # Verify the move worked
+                    if os.path.exists(os.path.join(checkpoint_dir, 'options.json')):
+                        print("Model checkpoints are now in the correct location!")
+                        return True
+
             print("Trying Python API fallback...")
             return download_model_checkpoints_python()
 
